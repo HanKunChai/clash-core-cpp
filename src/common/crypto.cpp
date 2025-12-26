@@ -3,6 +3,11 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include <openssl/kdf.h>
+#include <openssl/params.h>
+#endif
 #include <stdexcept>
 #include <cstring>
 
@@ -135,6 +140,33 @@ end:
 
 // HKDF-SHA1 implementation
 std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::string& salt, const std::string& info, size_t len) {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    std::vector<uint8_t> okm(len);
+    EVP_KDF *kdf = EVP_KDF_fetch(NULL, "HKDF", NULL);
+    if (kdf == NULL) {
+        throw std::runtime_error("EVP_KDF_fetch failed");
+    }
+    EVP_KDF_CTX *kctx = EVP_KDF_CTX_new(kdf);
+    EVP_KDF_free(kdf);
+
+    if (kctx == NULL) {
+        throw std::runtime_error("EVP_KDF_CTX_new failed");
+    }
+
+    OSSL_PARAM params[5];
+    params[0] = OSSL_PARAM_construct_utf8_string("digest", (char*)"SHA1", 0);
+    params[1] = OSSL_PARAM_construct_octet_string("key", (void*)key.data(), key.size());
+    params[2] = OSSL_PARAM_construct_octet_string("salt", (void*)salt.data(), salt.size());
+    params[3] = OSSL_PARAM_construct_octet_string("info", (void*)info.data(), info.size());
+    params[4] = OSSL_PARAM_construct_end();
+
+    if (EVP_KDF_derive(kctx, okm.data(), len, params) <= 0) {
+        EVP_KDF_CTX_free(kctx);
+        throw std::runtime_error("EVP_KDF_derive failed");
+    }
+    EVP_KDF_CTX_free(kctx);
+    return okm;
+#else
     // 1. Extract
     unsigned char prk[EVP_MAX_MD_SIZE];
     unsigned int prk_len;
@@ -170,6 +202,7 @@ std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::st
     }
     
     return okm;
+#endif
 }
 
 std::vector<uint8_t> AeadCipher::bytes_to_key(CipherType type, const std::string& password) {
