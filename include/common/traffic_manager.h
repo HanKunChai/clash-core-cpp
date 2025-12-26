@@ -3,31 +3,67 @@
 #include <atomic>
 #include <mutex>
 
-namespace clash {
-namespace common {
+namespace clash
+{
+    namespace common
+    {
+        /**
+         * @brief 全局流量管理器
+         * 
+         * 统计全局的上传和下载流量。
+         */
+        class TrafficManager
+        {
+        public:
+            /**
+             * @brief 获取单例实例
+             * 
+             * @return TrafficManager& 单例引用
+             */
+            static TrafficManager& instance();
 
-class TrafficManager {
-public:
-    static TrafficManager& instance();
+            /**
+             * @brief 增加上传流量
+             * 
+             * @param bytes 字节数
+             */
+            void addUpload(uint64_t bytes);
 
-    void addUpload(uint64_t bytes);
-    void addDownload(uint64_t bytes);
+            /**
+             * @brief 增加下载流量
+             * 
+             * @param bytes 字节数
+             */
+            void addDownload(uint64_t bytes);
 
-    uint64_t totalUpload() const;
-    uint64_t totalDownload() const;
+            /**
+             * @brief 获取总上传流量
+             * 
+             * @return uint64_t 总上传字节数
+             */
+            uint64_t totalUpload() const;
 
-    // Reset counters (optional)
-    void reset();
+            /**
+             * @brief 获取总下载流量
+             * 
+             * @return uint64_t 总下载字节数
+             */
+            uint64_t totalDownload() const;
 
-private:
-    TrafficManager() = default;
-    ~TrafficManager() = default;
-    TrafficManager(const TrafficManager&) = delete;
-    TrafficManager& operator=(const TrafficManager&) = delete;
+            /**
+             * @brief 重置计数器
+             */
+            void reset();
 
-    std::atomic<uint64_t> upload_{0};
-    std::atomic<uint64_t> download_{0};
-};
+        private:
+            TrafficManager() = default;
+            ~TrafficManager() = default;
+            TrafficManager(const TrafficManager&) = delete;
+            TrafficManager& operator=(const TrafficManager&) = delete;
 
-} // namespace common
+            std::atomic<uint64_t> upload_{0};
+            std::atomic<uint64_t> download_{0};
+        };
+
+    } // namespace common
 } // namespace clash

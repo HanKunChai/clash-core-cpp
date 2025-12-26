@@ -2,26 +2,32 @@
 
 #include <string>
 
-namespace clash {
-namespace constant {
+namespace clash
+{
+    namespace constant
+    {
+        /**
+         * @brief 入站连接类型枚举
+         */
+        enum class InboundType
+        {
+            Socks,  // SOCKS5 代理
+            Redir,  // 透明代理 (Redirect)
+            Tproxy, // 透明代理 (TProxy)
+            HTTP,   // HTTP 代理
+            Mixed   // 混合端口 (HTTP + SOCKS5)
+        };
 
-enum class InboundType {
-    Socks,
-    Redir,
-    Tproxy,
-    HTTP,
-    Mixed
-};
+        /**
+         * @brief 入站配置结构
+         */
+        struct Inbound
+        {
+            InboundType type;           // 入站类型
+            std::string bindAddress;    // 绑定地址
+            bool isFromPortCfg = false; // 是否来自旧版端口配置
+            int port = 0;               // 监听端口
+        };
 
-struct Inbound {
-    InboundType type;
-    std::string bindAddress;
-    bool isFromPortCfg = false;
-    // Additional fields for specific inbounds (port, user, pass, etc.)
-    // In Go, these are handled by dynamic decoding or specific structs.
-    // For C++, we might need a variant or subclassing, or just a map of options.
-    int port = 0;
-};
-
-} // namespace constant
+    } // namespace constant
 } // namespace clash

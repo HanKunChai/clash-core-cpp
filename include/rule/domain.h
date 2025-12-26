@@ -4,71 +4,178 @@
 #include <algorithm>
 #include <string>
 
-namespace clash {
-namespace rule {
-
-class Domain : public Rule {
-public:
-    Domain(std::string domain, std::string adapter)
-        : domain_(std::move(domain)), adapter_(std::move(adapter)) {
-        std::transform(domain_.begin(), domain_.end(), domain_.begin(), ::tolower);
-    }
-
-    constant::RuleType type() const override { return constant::RuleType::Domain; }
-    
-    bool match(const constant::Metadata& metadata) const override {
-        if (metadata.host.empty()) return false;
-        // Simple case-insensitive comparison (assuming metadata.host is already lowercased or we do it here)
-        // For performance, we should ensure metadata.host is lowercased once.
-        // Here we just do a simple check.
-        std::string host = metadata.host;
-        std::transform(host.begin(), host.end(), host.begin(), ::tolower);
-        return host == domain_;
-    }
-
-    std::string adapter() const override { return adapter_; }
-    std::string payload() const override { return domain_; }
-
-private:
-    std::string domain_;
-    std::string adapter_;
-};
-
-class DomainSuffix : public Rule {
-public:
-    DomainSuffix(std::string suffix, std::string adapter)
-        : suffix_(std::move(suffix)), adapter_(std::move(adapter)) {
-        std::transform(suffix_.begin(), suffix_.end(), suffix_.begin(), ::tolower);
-    }
-
-    constant::RuleType type() const override { return constant::RuleType::DomainSuffix; }
-
-    bool match(const constant::Metadata& metadata) const override {
-        if (metadata.host.empty()) return false;
-        std::string host = metadata.host;
-        std::transform(host.begin(), host.end(), host.begin(), ::tolower);
-
-        if (host.length() < suffix_.length()) return false;
-        
-        // Exact match
-        if (host == suffix_) return true;
-        
-        // Suffix match (must be preceded by dot)
-        if (host.length() > suffix_.length()) {
-            if (host.compare(host.length() - suffix_.length(), suffix_.length(), suffix_) == 0) {
-                return host[host.length() - suffix_.length() - 1] == '.';
+namespace clash
+{
+    namespace rule
+    {
+        /**
+         * @brief 域名匹配规则
+         * 
+         * 匹配完全相等的域名。
+         */
+        class Domain : public Rule
+        {
+        public:
+            /**
+             * @brief 构造函数
+             * 
+             * @param domain 目标域名
+             * @param adapter 目标适配器名称
+             */
+            Domain(std::string domain, std::string adapter)
+                : domain_(std::move(domain)), adapter_(std::move(adapter))
+            {
+                std::transform(domain_.begin(), domain_.end(), domain_.begin(), ::tolower);
             }
-        }
-        return false;
-    }
 
-    std::string adapter() const override { return adapter_; }
-    std::string payload() const override { return suffix_; }
+            /**
+             * @brief 获取规则类型
+             * 
+             * @return constant::RuleType 规则类型
+             */
+            constant::RuleType type() const override
+            {
+                return constant::RuleType::Domain;
+            }
+            
+            /**
+             * @brief 检查元数据是否匹配规则
+             * 
+             * @param metadata 连接元数据
+             * @return true 匹配
+             * @return false 不匹配
+             */
+            bool match(const constant::Metadata& metadata) const override
+            {
+                if (metadata.host.empty())
+                {
+                    return false;
+                }
+                // 简单的忽略大小写比较 (假设 metadata.host 已经是小写或者在这里转换)
+                // 为了性能，应该确保 metadata.host 只转换一次。
+                // 这里我们只做一个简单的检查。
+                std::string host = metadata.host;
+                std::transform(host.begin(), host.end(), host.begin(), ::tolower);
+                return host == domain_;
+            }
 
-private:
-    std::string suffix_;
-    std::string adapter_;
-};
+            /**
+             * @brief 获取适配器名称
+             * 
+             * @return std::string 适配器名称
+             */
+            std::string adapter() const override
+            {
+                return adapter_;
+            }
 
-} // namespace rule
+            /**
+             * @brief 获取规则载荷 (域名)
+             * 
+             * @return std::string 规则载荷
+             */
+            std::string payload() const override
+            {
+                return domain_;
+            }
+
+        private:
+            std::string domain_;
+            std::string adapter_;
+        };
+
+        /**
+         * @brief 域名后缀匹配规则
+         * 
+         * 匹配域名后缀。
+         */
+        class DomainSuffix : public Rule
+        {
+        public:
+            /**
+             * @brief 构造函数
+             * 
+             * @param suffix 域名后缀
+             * @param adapter 目标适配器名称
+             */
+            DomainSuffix(std::string suffix, std::string adapter)
+                : suffix_(std::move(suffix)), adapter_(std::move(adapter))
+            {
+                std::transform(suffix_.begin(), suffix_.end(), suffix_.begin(), ::tolower);
+            }
+
+            /**
+             * @brief 获取规则类型
+             * 
+             * @return constant::RuleType 规则类型
+             */
+            constant::RuleType type() const override
+            {
+                return constant::RuleType::DomainSuffix;
+            }
+
+            /**
+             * @brief 检查元数据是否匹配规则
+             * 
+             * @param metadata 连接元数据
+             * @return true 匹配
+             * @return false 不匹配
+             */
+            bool match(const constant::Metadata& metadata) const override
+            {
+                if (metadata.host.empty())
+                {
+                    return false;
+                }
+                std::string host = metadata.host;
+                std::transform(host.begin(), host.end(), host.begin(), ::tolower);
+
+                if (host.length() < suffix_.length())
+                {
+                    return false;
+                }
+                
+                // 精确匹配
+                if (host == suffix_)
+                {
+                    return true;
+                }
+                
+                // 后缀匹配 (必须以点号开头)
+                if (host.length() > suffix_.length())
+                {
+                    if (host.compare(host.length() - suffix_.length(), suffix_.length(), suffix_) == 0)
+                    {
+                        return host[host.length() - suffix_.length() - 1] == '.';
+                    }
+                }
+                return false;
+            }
+
+            /**
+             * @brief 获取适配器名称
+             * 
+             * @return std::string 适配器名称
+             */
+            std::string adapter() const override
+            {
+                return adapter_;
+            }
+
+            /**
+             * @brief 获取规则载荷 (域名后缀)
+             * 
+             * @return std::string 规则载荷
+             */
+            std::string payload() const override
+            {
+                return suffix_;
+            }
+
+        private:
+            std::string suffix_;
+            std::string adapter_;
+        };
+
+    } // namespace rule
 } // namespace clash

@@ -12,13 +12,17 @@
 #include <iostream>
 #include <sstream>
 
-namespace clash {
-namespace config {
+namespace clash
+{
+namespace config
+{
 
 // Helper to safely get values
 template<typename T>
-T get_optional(const YAML::Node& node, const std::string& key, T default_val) {
-    if (node[key]) {
+T get_optional(const YAML::Node& node, const std::string& key, T default_val)
+{
+    if (node[key])
+    {
         return node[key].as<T>();
     }
     return default_val;
@@ -27,13 +31,15 @@ T get_optional(const YAML::Node& node, const std::string& key, T default_val) {
 // 辅助函数：解析规则字符串
 // 规则格式通常为: TYPE,VALUE,PROXY[,OPTIONS]
 // 例如: DOMAIN-SUFFIX,google.com,Proxy
-std::shared_ptr<rule::Rule> parseRule(const std::string& ruleStr) {
+std::shared_ptr<rule::Rule> parseRule(const std::string& ruleStr)
+{
     std::istringstream iss(ruleStr);
     std::string segment;
     std::vector<std::string> parts;
     
     // 按逗号分割字符串
-    while (std::getline(iss, segment, ',')) {
+    while (std::getline(iss, segment, ','))
+    {
         // 去除首尾空白字符
         segment.erase(0, segment.find_first_not_of(" \t"));
         segment.erase(segment.find_last_not_of(" \t") + 1);
@@ -47,70 +53,96 @@ std::shared_ptr<rule::Rule> parseRule(const std::string& ruleStr) {
     std::transform(type.begin(), type.end(), type.begin(), ::toupper);
 
     // 根据类型创建对应的规则对象
-    if (type == "DOMAIN") {
+    if (type == "DOMAIN")
+    {
         // 完整域名匹配
         if (parts.size() < 3) return nullptr;
         return std::make_shared<rule::Domain>(parts[1], parts[2]);
-    } else if (type == "DOMAIN-SUFFIX") {
+    }
+    else if (type == "DOMAIN-SUFFIX")
+    {
         // 域名后缀匹配
         if (parts.size() < 3) return nullptr;
         return std::make_shared<rule::DomainSuffix>(parts[1], parts[2]);
-    } else if (type == "DOMAIN-KEYWORD") {
+    }
+    else if (type == "DOMAIN-KEYWORD")
+    {
         // 域名关键字匹配
         if (parts.size() < 3) return nullptr;
         return std::make_shared<rule::DomainKeyword>(parts[1], parts[2]);
-    } else if (type == "MATCH") {
+    }
+    else if (type == "MATCH")
+    {
         // 全匹配 (通常作为最后一条规则)
         if (parts.size() < 2) return nullptr;
         return std::make_shared<rule::Final>(parts[1]);
-    } else if (type == "IP-CIDR" || type == "IP-CIDR6") {
+    }
+    else if (type == "IP-CIDR" || type == "IP-CIDR6")
+    {
         // 目标 IP CIDR 匹配
         if (parts.size() < 3) return nullptr;
         bool noResolve = false;
         // 检查是否有 no-resolve 选项 (不触发 DNS 解析)
-        if (parts.size() >= 4 && parts[3] == "no-resolve") {
+        if (parts.size() >= 4 && parts[3] == "no-resolve")
+        {
             noResolve = true;
         }
         return std::make_shared<rule::IPCIDR>(parts[1], parts[2], noResolve);
-    } else if (type == "SRC-IP-CIDR") {
+    }
+    else if (type == "SRC-IP-CIDR")
+    {
         // 源 IP CIDR 匹配
         if (parts.size() < 3) return nullptr;
         return std::make_shared<rule::SrcIPCIDR>(parts[1], parts[2]);
-    } else if (type == "SRC-PORT") {
+    }
+    else if (type == "SRC-PORT")
+    {
         // 源端口匹配
         if (parts.size() < 3) return nullptr;
-        try {
+        try
+        {
             int port = std::stoi(parts[1]);
             return std::make_shared<rule::Port>(rule::Port::Type::SrcPort, port, parts[2]);
-        } catch (...) { return nullptr; }
-    } else if (type == "DST-PORT") {
+        }
+        catch (...) { return nullptr; }
+    }
+    else if (type == "DST-PORT")
+    {
         // 目标端口匹配
         if (parts.size() < 3) return nullptr;
-        try {
+        try
+        {
             int port = std::stoi(parts[1]);
             return std::make_shared<rule::Port>(rule::Port::Type::DstPort, port, parts[2]);
-        } catch (...) { return nullptr; }
-    } else if (type == "PROCESS-NAME") {
+        }
+        catch (...) { return nullptr; }
+    }
+    else if (type == "PROCESS-NAME")
+    {
         // 进程名匹配
         if (parts.size() < 3) return nullptr;
         return std::make_shared<rule::Process>(parts[1], parts[2]);
-    } else if (type == "PROCESS-PATH") {
+    }
+    else if (type == "PROCESS-PATH")
+    {
         // 进程路径匹配
         if (parts.size() < 3) return nullptr;
         return std::make_shared<rule::ProcessPath>(parts[1], parts[2]);
     }
     
     // TODO: 实现其他规则类型 (如 GEOIP 等)
-    log::warn("Unsupported rule type: {}", type);
+    LOG_WARN("Unsupported rule type: %s", type.c_str());
     return nullptr;
 }
 
 // 加载配置文件
 // 使用 yaml-cpp 库解析 YAML 格式的配置文件
-Config Config::load(const std::string& path) {
+Config Config::load(const std::string& path)
+{
     Config cfg;
     
-    try {
+    try
+    {
         YAML::Node config = YAML::LoadFile(path);
 
         // 1. 解析通用配置 (General)
@@ -145,44 +177,56 @@ Config Config::load(const std::string& path) {
         cfg.general.secret = get_optional(config, "secret", std::string(""));
 
         // 2. 解析 DNS 配置
-        if (config["dns"]) {
+        if (config["dns"])
+        {
             YAML::Node dnsNode = config["dns"];
             cfg.dns.enable = get_optional(dnsNode, "enable", false);
             cfg.dns.ipv6 = get_optional(dnsNode, "ipv6", false);
             cfg.dns.listen = get_optional(dnsNode, "listen", std::string(""));
             
-            if (dnsNode["nameserver"]) {
-                for (const auto& ns : dnsNode["nameserver"]) {
+            if (dnsNode["nameserver"])
+            {
+                for (const auto& ns : dnsNode["nameserver"])
+                {
                     cfg.dns.nameServer.push_back(ns.as<std::string>());
                 }
             }
             
-            if (dnsNode["fallback"]) {
-                for (const auto& fb : dnsNode["fallback"]) {
+            if (dnsNode["fallback"])
+            {
+                for (const auto& fb : dnsNode["fallback"])
+                {
                     cfg.dns.fallback.push_back(fb.as<std::string>());
                 }
             }
         }
 
         // 3. 解析 Profile 配置 (持久化存储)
-        if (config["profile"]) {
+        if (config["profile"])
+        {
             cfg.profile.storeSelected = get_optional(config["profile"], "store-selected", false);
             cfg.profile.storeFakeIP = get_optional(config["profile"], "store-fake-ip", false);
         }
 
         // 4. 解析实验性功能
-        if (config["experimental"]) {
+        if (config["experimental"])
+        {
             cfg.experimental.udpFallbackMatch = get_optional(config["experimental"], "udp-fallback-match", false);
         }
 
         // 5. 解析代理节点 (Proxies)
-        if (config["proxies"]) {
-            for (const auto& proxyNode : config["proxies"]) {
-                if (proxyNode.IsMap()) {
+        if (config["proxies"])
+        {
+            for (const auto& proxyNode : config["proxies"])
+            {
+                if (proxyNode.IsMap())
+                {
                     std::map<std::string, std::string> proxyMap;
-                    for (auto it = proxyNode.begin(); it != proxyNode.end(); ++it) {
+                    for (auto it = proxyNode.begin(); it != proxyNode.end(); ++it)
+                    {
                         std::string key = it->first.as<std::string>();
-                        if (it->second.IsScalar()) {
+                        if (it->second.IsScalar())
+                        {
                             proxyMap[key] = it->second.as<std::string>();
                         }
                     }
@@ -192,8 +236,10 @@ Config Config::load(const std::string& path) {
         }
 
         // 6. 解析代理组 (Proxy Groups)
-        if (config["proxy-groups"]) {
-            for (const auto& groupNode : config["proxy-groups"]) {
+        if (config["proxy-groups"])
+        {
+            for (const auto& groupNode : config["proxy-groups"])
+            {
                 ProxyGroup group;
                 group.name = get_optional(groupNode, "name", std::string(""));
                 group.type = get_optional(groupNode, "type", std::string("select"));
@@ -201,8 +247,10 @@ Config Config::load(const std::string& path) {
                 group.interval = get_optional(groupNode, "interval", 0);
                 group.strategy = get_optional(groupNode, "strategy", std::string("consistent-hashing"));
                 
-                if (groupNode["proxies"]) {
-                    for (const auto& p : groupNode["proxies"]) {
+                if (groupNode["proxies"])
+                {
+                    for (const auto& p : groupNode["proxies"])
+                    {
                         group.proxies.push_back(p.as<std::string>());
                     }
                 }
@@ -211,18 +259,23 @@ Config Config::load(const std::string& path) {
         }
 
         // 7. 解析路由规则 (Rules)
-        if (config["rules"]) {
-            for (const auto& ruleNode : config["rules"]) {
+        if (config["rules"])
+        {
+            for (const auto& ruleNode : config["rules"])
+            {
                 std::string ruleStr = ruleNode.as<std::string>();
                 auto rule = parseRule(ruleStr);
-                if (rule) {
+                if (rule)
+                {
                     cfg.rules.push_back(rule);
                 }
             }
         }
 
-    } catch (const YAML::Exception& e) {
-        log::error("Failed to parse config file: %s", e.what());
+    }
+    catch (const YAML::Exception& e)
+    {
+        LOG_ERROR("Failed to parse config file: %s", e.what());
         throw; // Re-throw or handle gracefully
     }
 

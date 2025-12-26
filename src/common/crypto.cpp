@@ -11,12 +11,18 @@
 #include <stdexcept>
 #include <cstring>
 
-namespace clash {
-namespace common {
-namespace crypto {
+namespace clash
+{
+namespace common
+{
+namespace crypto
+{
 
-static const EVP_CIPHER* get_evp_cipher(CipherType type) {
-    switch (type) {
+// 获取 OpenSSL EVP_CIPHER 结构体
+static const EVP_CIPHER* get_evp_cipher(CipherType type)
+{
+    switch (type)
+    {
         case CipherType::AES_128_GCM: return EVP_aes_128_gcm();
         case CipherType::AES_256_GCM: return EVP_aes_256_gcm();
         case CipherType::CHACHA20_POLY1305: return EVP_chacha20_poly1305();
@@ -24,8 +30,11 @@ static const EVP_CIPHER* get_evp_cipher(CipherType type) {
     }
 }
 
-size_t AeadCipher::KeySize(CipherType type) {
-    switch (type) {
+// 获取密钥长度
+size_t AeadCipher::KeySize(CipherType type)
+{
+    switch (type)
+    {
         case CipherType::AES_128_GCM: return 16;
         case CipherType::AES_256_GCM: return 32;
         case CipherType::CHACHA20_POLY1305: return 32;
@@ -33,12 +42,18 @@ size_t AeadCipher::KeySize(CipherType type) {
     }
 }
 
-size_t AeadCipher::SaltSize(CipherType type) {
-    return KeySize(type); // Shadowsocks standard: salt size equals key size
+// 获取盐值长度
+// Shadowsocks 标准中，盐值长度等于密钥长度
+size_t AeadCipher::SaltSize(CipherType type)
+{
+    return KeySize(type);
 }
 
-size_t AeadCipher::NonceSize(CipherType type) {
-    switch (type) {
+// 获取 Nonce (IV) 长度
+size_t AeadCipher::NonceSize(CipherType type)
+{
+    switch (type)
+    {
         case CipherType::AES_128_GCM: return 12;
         case CipherType::AES_256_GCM: return 12;
         case CipherType::CHACHA20_POLY1305: return 12;
@@ -46,12 +61,19 @@ size_t AeadCipher::NonceSize(CipherType type) {
     }
 }
 
-size_t AeadCipher::TagSize(CipherType type) {
-    return 16; // Standard AEAD tag size
+// 获取认证标签 (Tag) 长度
+// 标准 AEAD 标签长度通常为 16 字节
+size_t AeadCipher::TagSize(CipherType type)
+{
+    return 16;
 }
 
+// AEAD 加密
+// 输入: 密钥, IV, 明文
+// 输出: 密文, 认证标签
 bool AeadCipher::encrypt(CipherType type, const std::string& key, const std::string& iv, 
-                        const std::vector<uint8_t>& plaintext, std::vector<uint8_t>& ciphertext, std::vector<uint8_t>& tag) {
+                        const std::vector<uint8_t>& plaintext, std::vector<uint8_t>& ciphertext, std::vector<uint8_t>& tag)
+{
     const EVP_CIPHER* cipher = get_evp_cipher(type);
     if (!cipher) return false;
 
@@ -62,28 +84,28 @@ bool AeadCipher::encrypt(CipherType type, const std::string& key, const std::str
     int len;
     int ciphertext_len;
 
-    // Initialize encryption
+    // 初始化加密上下文
     if (EVP_EncryptInit_ex(ctx, cipher, nullptr, nullptr, nullptr) != 1) goto end;
     
-    // Set IV length if not default (12 bytes is default for GCM, but good to be explicit)
+    // 设置 IV 长度 (GCM 默认为 12 字节，但显式设置更安全)
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, iv.length(), nullptr) != 1) goto end;
 
-    // Initialise key and IV
+    // 初始化密钥和 IV
     if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, 
         reinterpret_cast<const unsigned char*>(key.data()), 
         reinterpret_cast<const unsigned char*>(iv.data())) != 1) goto end;
 
-    // Provide plaintext
+    // 处理明文数据
     ciphertext.resize(plaintext.size() + EVP_CIPHER_block_size(cipher));
     if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(), plaintext.size()) != 1) goto end;
     ciphertext_len = len;
 
-    // Finalize
+    // 结束加密
     if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) goto end;
     ciphertext_len += len;
     ciphertext.resize(ciphertext_len);
 
-    // Get Tag
+    // 获取认证标签 (Tag)
     tag.resize(TagSize(type));
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, tag.size(), tag.data()) != 1) goto end;
 
@@ -94,8 +116,12 @@ end:
     return success;
 }
 
+// AEAD 解密
+// 输入: 密钥, IV, 密文, 认证标签
+// 输出: 明文
 bool AeadCipher::decrypt(CipherType type, const std::string& key, const std::string& iv, 
-                        const std::vector<uint8_t>& ciphertext, const std::vector<uint8_t>& tag, std::vector<uint8_t>& plaintext) {
+                        const std::vector<uint8_t>& ciphertext, const std::vector<uint8_t>& tag, std::vector<uint8_t>& plaintext)
+{
     const EVP_CIPHER* cipher = get_evp_cipher(type);
     if (!cipher) return false;
 
@@ -106,7 +132,7 @@ bool AeadCipher::decrypt(CipherType type, const std::string& key, const std::str
     int len;
     int plaintext_len;
 
-    // Initialize decryption
+    // 初始化解密上下文
     if (EVP_DecryptInit_ex(ctx, cipher, nullptr, nullptr, nullptr) != 1) goto end;
     
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, iv.length(), nullptr) != 1) goto end;
@@ -115,17 +141,18 @@ bool AeadCipher::decrypt(CipherType type, const std::string& key, const std::str
         reinterpret_cast<const unsigned char*>(key.data()), 
         reinterpret_cast<const unsigned char*>(iv.data())) != 1) goto end;
 
-    // Set expected tag
+    // 设置期望的认证标签 (Tag)
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, tag.size(), const_cast<unsigned char*>(tag.data())) != 1) goto end;
 
-    // Provide ciphertext
+    // 处理密文数据
     plaintext.resize(ciphertext.size() + EVP_CIPHER_block_size(cipher));
     if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(), ciphertext.size()) != 1) goto end;
     plaintext_len = len;
 
-    // Finalize (verifies tag)
-    if (EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len) != 1) {
-        // Verification failed
+    // 结束解密 (验证 Tag)
+    if (EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len) != 1)
+    {
+        // 验证失败
         goto end;
     }
     plaintext_len += len;
@@ -138,18 +165,23 @@ end:
     return success;
 }
 
-// HKDF-SHA1 implementation
-std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::string& salt, const std::string& info, size_t len) {
+// HKDF-SHA1 实现
+// 用于从主密钥派生子密钥
+std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::string& salt, const std::string& info, size_t len)
+{
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    // OpenSSL 3.0+ 使用 EVP_KDF API
     std::vector<uint8_t> okm(len);
     EVP_KDF *kdf = EVP_KDF_fetch(NULL, "HKDF", NULL);
-    if (kdf == NULL) {
+    if (kdf == NULL)
+    {
         throw std::runtime_error("EVP_KDF_fetch failed");
     }
     EVP_KDF_CTX *kctx = EVP_KDF_CTX_new(kdf);
     EVP_KDF_free(kdf);
 
-    if (kctx == NULL) {
+    if (kctx == NULL)
+    {
         throw std::runtime_error("EVP_KDF_CTX_new failed");
     }
 
@@ -160,14 +192,16 @@ std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::st
     params[3] = OSSL_PARAM_construct_octet_string("info", (void*)info.data(), info.size());
     params[4] = OSSL_PARAM_construct_end();
 
-    if (EVP_KDF_derive(kctx, okm.data(), len, params) <= 0) {
+    if (EVP_KDF_derive(kctx, okm.data(), len, params) <= 0)
+    {
         EVP_KDF_CTX_free(kctx);
         throw std::runtime_error("EVP_KDF_derive failed");
     }
     EVP_KDF_CTX_free(kctx);
     return okm;
 #else
-    // 1. Extract
+    // OpenSSL 1.1.x 手动实现 HKDF
+    // 1. Extract (提取)
     unsigned char prk[EVP_MAX_MD_SIZE];
     unsigned int prk_len;
     
@@ -175,7 +209,7 @@ std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::st
          reinterpret_cast<const unsigned char*>(key.data()), key.length(), 
          prk, &prk_len);
 
-    // 2. Expand
+    // 2. Expand (扩展)
     std::vector<uint8_t> okm;
     okm.reserve(len);
     
@@ -183,11 +217,13 @@ std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::st
     unsigned int t_len = 0;
     unsigned char c = 1;
     
-    while (okm.size() < len) {
+    while (okm.size() < len)
+    {
         HMAC_CTX* ctx = HMAC_CTX_new();
         HMAC_Init_ex(ctx, prk, prk_len, EVP_sha1(), nullptr);
         
-        if (t_len > 0) {
+        if (t_len > 0)
+        {
             HMAC_Update(ctx, t, t_len);
         }
         HMAC_Update(ctx, reinterpret_cast<const unsigned char*>(info.data()), info.length());
@@ -205,7 +241,10 @@ std::vector<uint8_t> AeadCipher::hkdf_sha1(const std::string& key, const std::st
 #endif
 }
 
-std::vector<uint8_t> AeadCipher::bytes_to_key(CipherType type, const std::string& password) {
+// 将密码转换为密钥 (EVP_BytesToKey)
+// 兼容旧版 Shadowsocks 的密钥生成方式
+std::vector<uint8_t> AeadCipher::bytes_to_key(CipherType type, const std::string& password)
+{
     const EVP_CIPHER* cipher = get_evp_cipher(type);
     if (!cipher) return {};
 

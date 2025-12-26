@@ -34,6 +34,10 @@ include_directories(${json_SOURCE_DIR}/include)
 
 add_definitions(-DASIO_STANDALONE)
 
+# 获取当前构建时间并定义为宏
+string(TIMESTAMP CURRENT_BUILD_TIME "%Y-%m-%d %H:%M:%S")
+add_definitions(-DBUILD_TIME=\"${CURRENT_BUILD_TIME}\")
+
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 

@@ -2,11 +2,19 @@
 
 #include <string>
 
-namespace clash {
-namespace constant {
+namespace clash
+{
+    namespace constant
+    {
+        /**
+         * @brief 版本信息
+         */
+        extern std::string Version;
 
-extern std::string Version;
-extern std::string BuildTime;
+        /**
+         * @brief 构建时间
+         */
+        extern std::string BuildTime;
 
-} // namespace constant
+    } // namespace constant
 } // namespace clash
