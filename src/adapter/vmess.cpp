@@ -81,7 +81,7 @@ namespace clash
                 // 目前仅建立 TCP 连接，后续需要实现完整的 VMess 协议栈
                 // 这意味着目前无法真正使用 VMess 节点
 
-                auto conn = std::make_unique<common::TcpConnection>(std::move(socket_));
+                auto conn = std::make_shared<common::TcpConnection>(std::move(socket_));
                 handler_(std::error_code(), std::move(conn));
             }
 

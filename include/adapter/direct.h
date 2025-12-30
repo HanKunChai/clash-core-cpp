@@ -47,7 +47,7 @@ namespace clash
              */
             void dial(const constant::Metadata& metadata, asio::io_context& io_context, ConnectHandler handler) override
             {
-                auto socket = std::make_unique<asio::ip::tcp::socket>(io_context);
+                auto socket = std::make_shared<asio::ip::tcp::socket>(io_context);
                 auto socket_ptr = socket.get();
                 
                 // 使用 shared_ptr 管理 resolver 生命周期
@@ -58,7 +58,7 @@ namespace clash
 
                 // 异步 DNS 解析
                 resolver->async_resolve(host, port,
-                    [this, socket = std::move(socket), resolver, handler](std::error_code ec, asio::ip::tcp::resolver::results_type results) mutable
+                    [this, socket, resolver, handler](std::error_code ec, asio::ip::tcp::resolver::results_type results) mutable
                     {
                         if (ec)
                         {
@@ -69,7 +69,7 @@ namespace clash
                         auto s_ptr = socket.get();
                         // 异步连接目标 IP
                         asio::async_connect(*s_ptr, results,
-                            [socket = std::move(socket), handler](std::error_code ec, asio::ip::tcp::endpoint /*endpoint*/) mutable
+                            [socket, handler](std::error_code ec, asio::ip::tcp::endpoint /*endpoint*/) mutable
                             {
                                 if (ec)
                                 {
@@ -78,7 +78,7 @@ namespace clash
                                 else
                                 {
                                     // 连接成功，封装为 TcpConnection
-                                    handler(ec, std::make_unique<common::TcpConnection>(std::move(*socket)));
+                                    handler(ec, std::make_shared<common::TcpConnection>(std::move(*socket)));
                                 }
                             });
                     });

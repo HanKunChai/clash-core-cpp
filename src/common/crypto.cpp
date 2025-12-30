@@ -18,6 +18,124 @@ namespace common
 namespace crypto
 {
 
+    void Hash::md5(const std::string& input, std::vector<uint8_t>& output)
+    {
+        output.resize(EVP_MAX_MD_SIZE);
+        unsigned int len = 0;
+        EVP_Digest(input.data(), input.size(), output.data(), &len, EVP_md5(), nullptr);
+        output.resize(len);
+    }
+
+    void Hash::sha1(const std::string& input, std::vector<uint8_t>& output)
+    {
+        output.resize(EVP_MAX_MD_SIZE);
+        unsigned int len = 0;
+        EVP_Digest(input.data(), input.size(), output.data(), &len, EVP_sha1(), nullptr);
+        output.resize(len);
+    }
+
+    void Hash::hmac_sha1(const std::string& key, const std::vector<uint8_t>& data, std::vector<uint8_t>& output)
+    {
+        output.resize(EVP_MAX_MD_SIZE);
+        unsigned int len = 0;
+        HMAC(EVP_sha1(), key.data(), key.size(), data.data(), data.size(), output.data(), &len);
+        output.resize(len);
+    }
+
+    size_t StreamCipher::KeySize(CipherType type)
+    {
+        switch (type)
+        {
+        case CipherType::AES_128_CTR: return 16;
+        case CipherType::AES_192_CTR: return 24;
+        case CipherType::AES_256_CTR: return 32;
+        case CipherType::AES_128_CFB: return 16;
+        case CipherType::AES_192_CFB: return 24;
+        case CipherType::AES_256_CFB: return 32;
+        case CipherType::RC4_MD5: return 16;
+        case CipherType::CHACHA20_IETF: return 32;
+        default: return 0;
+        }
+    }
+
+    size_t StreamCipher::IvSize(CipherType type)
+    {
+        switch (type)
+        {
+        case CipherType::AES_128_CTR: return 16;
+        case CipherType::AES_192_CTR: return 16;
+        case CipherType::AES_256_CTR: return 16;
+        case CipherType::AES_128_CFB: return 16;
+        case CipherType::AES_192_CFB: return 16;
+        case CipherType::AES_256_CFB: return 16;
+        case CipherType::RC4_MD5: return 16;
+        case CipherType::CHACHA20_IETF: return 12;
+        default: return 0;
+        }
+    }
+
+    StreamCipher::StreamCipher(CipherType type, const std::string& key, const std::string& iv, bool encrypt)
+        : type_(type), encrypt_(encrypt)
+    {
+        ctx_ = EVP_CIPHER_CTX_new();
+        const EVP_CIPHER* cipher = nullptr;
+        std::string effective_iv = iv;
+
+        switch (type)
+        {
+        case CipherType::AES_128_CTR: cipher = EVP_aes_128_ctr(); break;
+        case CipherType::AES_192_CTR: cipher = EVP_aes_192_ctr(); break;
+        case CipherType::AES_256_CTR: cipher = EVP_aes_256_ctr(); break;
+        case CipherType::AES_128_CFB: cipher = EVP_aes_128_cfb(); break;
+        case CipherType::AES_192_CFB: cipher = EVP_aes_192_cfb(); break;
+        case CipherType::AES_256_CFB: cipher = EVP_aes_256_cfb(); break;
+        case CipherType::RC4_MD5: cipher = EVP_rc4(); break;
+        case CipherType::CHACHA20_IETF: 
+            cipher = EVP_chacha20(); 
+            if (effective_iv.size() == 12) {
+                // OpenSSL EVP_chacha20 expects 16 bytes IV (Counter + Nonce)
+                // Layout: [Counter (4)] [Nonce (12)]
+                // We want Counter = 0
+                std::string padded_iv(4, '\0');
+                padded_iv += effective_iv;
+                effective_iv = padded_iv;
+            }
+            break;
+        default: throw std::runtime_error("Unsupported stream cipher type");
+        }
+
+        if (!EVP_CipherInit_ex(static_cast<EVP_CIPHER_CTX*>(ctx_), cipher, nullptr, 
+            reinterpret_cast<const unsigned char*>(key.data()), 
+            reinterpret_cast<const unsigned char*>(effective_iv.data()), 
+            encrypt ? 1 : 0))
+        {
+            EVP_CIPHER_CTX_free(static_cast<EVP_CIPHER_CTX*>(ctx_));
+            throw std::runtime_error("Failed to init stream cipher");
+        }
+    }
+
+    StreamCipher::~StreamCipher()
+    {
+        if (ctx_)
+        {
+            EVP_CIPHER_CTX_free(static_cast<EVP_CIPHER_CTX*>(ctx_));
+        }
+    }
+
+    void StreamCipher::update(const std::vector<uint8_t>& input, std::vector<uint8_t>& output)
+    {
+        if (input.empty()) return;
+        
+        int out_len = input.size() + EVP_CIPHER_CTX_block_size(static_cast<EVP_CIPHER_CTX*>(ctx_));
+        output.resize(out_len);
+
+        if (!EVP_CipherUpdate(static_cast<EVP_CIPHER_CTX*>(ctx_), output.data(), &out_len, input.data(), input.size()))
+        {
+            throw std::runtime_error("Stream cipher update failed");
+        }
+        output.resize(out_len);
+    }
+
 // 获取 OpenSSL EVP_CIPHER 结构体
 static const EVP_CIPHER* get_evp_cipher(CipherType type)
 {

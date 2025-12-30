@@ -3,8 +3,11 @@
 #include <filesystem>
 #include <thread>
 #include <vector>
+#include <ctime>
+#include <cstdlib>
 #include "constant/version.h"
 #include "constant/path.h"
+#include "common/geoip.h"
 #include "log/log.h"
 #include "config/config.h"
 #include "listener/tcp_listener.h"
@@ -13,6 +16,7 @@
 #include "adapter/reject.h"
 #include "adapter/socks5.h"
 #include "adapter/shadowsocks.h"
+#include "adapter/shadowsocksr.h"
 #include "adapter/vmess.h"
 #include "adapter/selector.h"
 #include "adapter/url_test.h"
@@ -34,6 +38,12 @@
 int main(int argc, char* argv[])
 {
     using namespace clash;
+
+    // 初始化日志
+    log::init();
+
+    // 初始化随机数种子
+    std::srand(std::time(nullptr));
 
     // 检查命令行参数
     if (argc > 1)
@@ -65,6 +75,17 @@ int main(int argc, char* argv[])
         // 解析配置文件路径
         std::string configPath = constant::Path::instance().resolve("config.yaml");
         LOG_INFO("Loading config from: %s", configPath.c_str());
+
+        // 初始化 GeoIP 数据库
+        std::string mmdbPath = constant::Path::instance().getMMDBPath();
+        if (std::filesystem::exists(mmdbPath))
+        {
+            common::GeoIP::instance().init(mmdbPath);
+        }
+        else
+        {
+            LOG_WARN("GeoIP database not found at: %s", mmdbPath.c_str());
+        }
         
         // 检查配置文件是否存在，如果不存在则创建默认配置 (用于测试)
         std::ifstream f(configPath);
@@ -199,6 +220,24 @@ int main(int argc, char* argv[])
 
                 tunnel->addProxy(std::make_shared<adapter::ShadowsocksAdapter>(opt));
                 LOG_INFO("Loaded proxy: %s (shadowsocks)", name.c_str());
+            }
+            else if (type == "ssr")
+            {
+                adapter::ShadowsocksRAdapter::Option opt;
+                opt.name = name;
+                opt.server = server;
+                opt.port = port;
+                
+                if (proxyConf.count("password")) opt.password = proxyConf.at("password");
+                if (proxyConf.count("cipher")) opt.cipher = proxyConf.at("cipher");
+                if (proxyConf.count("protocol")) opt.protocol = proxyConf.at("protocol");
+                if (proxyConf.count("protocol-param")) opt.protocol_param = proxyConf.at("protocol-param");
+                if (proxyConf.count("obfs")) opt.obfs = proxyConf.at("obfs");
+                if (proxyConf.count("obfs-param")) opt.obfs_param = proxyConf.at("obfs-param");
+                if (proxyConf.count("udp")) opt.udp = (proxyConf.at("udp") == "true");
+
+                tunnel->addProxy(std::make_shared<adapter::ShadowsocksRAdapter>(opt));
+                LOG_INFO("Loaded proxy: %s (shadowsocksr)", name.c_str());
             }
             else if (type == "vmess")
             {
@@ -345,6 +384,10 @@ int main(int argc, char* argv[])
             if (colon != std::string::npos)
             {
                 addr = cfg.general.externalController.substr(0, colon);
+                if (addr.empty())
+                {
+                    addr = "0.0.0.0";
+                }
                 try
                 {
                     port = std::stoi(cfg.general.externalController.substr(colon + 1));
@@ -370,7 +413,7 @@ int main(int argc, char* argv[])
                 }
             }
             
-            controller = std::make_shared<control::HttpController>(io_context, addr, port, tunnel);
+            controller = std::make_shared<control::HttpController>(io_context, addr, port, tunnel, cfg.general.externalUI);
             controller->start();
         }
 

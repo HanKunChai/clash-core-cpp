@@ -379,7 +379,7 @@ void Session::handle_connect()
 
     // 发起连接
     adapter_->dial(metadata_, ctx,
-        [this, self](std::error_code ec, std::unique_ptr<common::Connection> conn)
+        [this, self](std::error_code ec, std::shared_ptr<common::Connection> conn)
         {
             if (!ec)
             {
@@ -427,7 +427,7 @@ void Session::handle_connect_http(bool is_connect, std::size_t initial_data_len)
     auto& ctx = static_cast<asio::io_context&>(socket_.get_executor().context());
 
     adapter_->dial(metadata_, ctx,
-        [this, self, is_connect, initial_data_len](std::error_code ec, std::unique_ptr<common::Connection> conn)
+        [this, self, is_connect, initial_data_len](std::error_code ec, std::shared_ptr<common::Connection> conn)
         {
             if (!ec)
             {

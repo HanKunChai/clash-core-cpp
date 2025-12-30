@@ -7,6 +7,7 @@
 #include "rule/src_ip_cidr.h"
 #include "rule/port.h"
 #include "rule/process.h"
+#include "rule/geoip.h"
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <iostream>
@@ -129,8 +130,19 @@ std::shared_ptr<rule::Rule> parseRule(const std::string& ruleStr)
         if (parts.size() < 3) return nullptr;
         return std::make_shared<rule::ProcessPath>(parts[1], parts[2]);
     }
+    else if (type == "GEOIP")
+    {
+        // GeoIP 匹配
+        if (parts.size() < 3) return nullptr;
+        bool no_resolve = false;
+        if (parts.size() > 3 && parts[3] == "no-resolve")
+        {
+            no_resolve = true;
+        }
+        return std::make_shared<rule::GeoIP>(parts[1], parts[2], no_resolve);
+    }
     
-    // TODO: 实现其他规则类型 (如 GEOIP 等)
+    // TODO: 实现其他规则类型
     LOG_WARN("Unsupported rule type: %s", type.c_str());
     return nullptr;
 }

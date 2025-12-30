@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clash Core Web UI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #1890ff;
+        }
+        .group {
+            margin-bottom: 20px;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .group-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .proxy-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .proxy-item {
+            padding: 8px 16px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fff;
+        }
+        .proxy-item:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+        .proxy-item.active {
+            background-color: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        .status-bar {
+            margin-top: 20px;
+            padding: 10px;
+            background: #fafafa;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        #logs {
+            margin-top: 20px;
+            background: #333;
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.8em;
+        }
+        .log-line {
+            margin: 2px 0;
+        }
+        .log-info { color: #a6e22e; }
+        .log-warn { color: #e6db74; }
+        .log-error { color: #f92672; }
+        .log-debug { color: #66d9ef; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Clash Core 控制面板</h1>
+        <div id="proxies-container">正在加载代理列表...</div>
+        
+        <div class="status-bar">
+            <div>上传: <span id="upload">0 B</span> | 下载: <span id="download">0 B</span></div>
+        </div>
+
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        const API_BASE = ''; // Relative path
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        async function fetchProxies() {
+            try {
+                const response = await fetch(`${API_BASE}/proxies`);
+                const data = await response.json();
+                renderProxies(data.proxies);
+            } catch (error) {
+                console.error('Failed to fetch proxies:', error);
+            }
+        }
+
+        function renderProxies(proxies) {
+            const container = document.getElementById('proxies-container');
+            container.innerHTML = '';
+
+            // Sort: Selectors first
+            const names = Object.keys(proxies).sort((a, b) => {
+                const typeA = proxies[a].type;
+                const typeB = proxies[b].type;
+                if (typeA === 'Selector' && typeB !== 'Selector') return -1;
+                if (typeA !== 'Selector' && typeB === 'Selector') return 1;
+                return a.localeCompare(b);
+            });
+
+            names.forEach(name => {
+                const proxy = proxies[name];
+                if (proxy.type === 'Selector') {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'group';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'group-title';
+                    title.textContent = `${name} (${proxy.type})`;
+                    groupDiv.appendChild(title);
+
+                    const listDiv = document.createElement('div');
+                    listDiv.className = 'proxy-list';
+
+                    proxy.all.forEach(itemName => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = `proxy-item ${itemName === proxy.now ? 'active' : ''}`;
+                        itemDiv.textContent = itemName;
+                        itemDiv.onclick = () => selectProxy(name, itemName);
+                        listDiv.appendChild(itemDiv);
+                    });
+
+                    groupDiv.appendChild(listDiv);
+                    container.appendChild(groupDiv);
+                }
+            });
+        }
+
+        async function selectProxy(group, name) {
+            try {
+                await fetch(`${API_BASE}/proxies/${encodeURIComponent(group)}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: name })
+                });
+                // Refresh list to update UI
+                fetchProxies();
+            } catch (error) {
+                console.error('Failed to select proxy:', error);
+                alert('切换失败: ' + error.message);
+            }
+        }
+
+        async function fetchTraffic() {
+            // Note: The current /traffic implementation uses chunked transfer encoding for streaming.
+            // For simplicity in this basic UI, we might not implement full streaming here, 
+            // or we can use a simple polling if the server supported it.
+            // But the server implementation is streaming.
+            // Let's try to read the stream.
+            try {
+                const response = await fetch(`${API_BASE}/traffic`);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const text = decoder.decode(value);
+                    // The server sends JSON lines.
+                    const lines = text.split('\n');
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                const data = JSON.parse(line);
+                                document.getElementById('upload').textContent = formatBytes(data.up);
+                                document.getElementById('download').textContent = formatBytes(data.down);
+                            } catch (e) {}
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Traffic stream error", e);
+                setTimeout(fetchTraffic, 3000);
+            }
+        }
+
+        // Initial load
+        fetchProxies();
+        // Poll proxies every 5 seconds to update selection state if changed elsewhere
+        setInterval(fetchProxies, 5000);
+        
+        // Start traffic stream
+        fetchTraffic();
+
+    </script>
+</body>
+</html>

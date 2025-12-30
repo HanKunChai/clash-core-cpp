@@ -43,7 +43,7 @@ namespace clash
              * @param std::error_code 错误码
              * @param std::unique_ptr<common::Connection> 建立的连接对象
              */
-            using ConnectHandler = std::function<void(std::error_code, std::unique_ptr<common::Connection>)>;
+            using ConnectHandler = std::function<void(std::error_code, std::shared_ptr<common::Connection>)>;
 
             /**
              * @brief 发起连接

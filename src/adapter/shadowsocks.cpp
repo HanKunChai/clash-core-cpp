@@ -99,7 +99,7 @@ namespace clash
                 // EncryptedConnection 会自动处理 Salt 的生成和发送 (在第一次 Write 时)
                 // 它包装了底层的 TCP socket，对外提供透明的读写接口
                 auto raw_conn = std::make_unique<common::TcpConnection>(std::move(socket_));
-                auto conn = std::make_unique<common::EncryptedConnection>(std::move(raw_conn), cipher_type, key, "");
+                auto conn = std::make_shared<common::EncryptedConnection>(std::move(raw_conn), cipher_type, key, "");
 
                 // 构造目标地址数据包 (Shadowsocks 协议)
                 // 格式: [Type][Addr][Port]
@@ -149,13 +149,10 @@ namespace clash
 
                 // 发送目标地址
                 // 注意：这里必须使用 conn->async_write，它会负责加密 (包括添加 Salt)
-                auto conn_ptr = conn.get();
-
-                // Wrap unique_ptr in a shared_ptr to make it copyable for the lambda capture
-                auto conn_holder = std::make_shared<std::unique_ptr<common::Connection>>(std::move(conn));
-
-                conn_ptr->async_write(asio::buffer(target),
-                    [this, conn_holder](std::error_code ec, size_t) mutable
+                
+                auto self = shared_from_this();
+                conn->async_write(asio::buffer(target),
+                    [this, self, conn](std::error_code ec, size_t) mutable
                     {
                         if (ec)
                         {
@@ -165,7 +162,7 @@ namespace clash
                         else
                         {
                             LOG_DEBUG("Shadowsocks handshake success");
-                            handler_(std::error_code(), std::move(*conn_holder));
+                            handler_(std::error_code(), conn);
                         }
                     });
             }

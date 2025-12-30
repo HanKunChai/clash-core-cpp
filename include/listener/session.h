@@ -61,7 +61,7 @@ namespace clash
 
             asio::ip::tcp::socket socket_;
             std::shared_ptr<tunnel::Tunnel> tunnel_;
-            std::unique_ptr<common::Connection> outbound_conn_;
+            std::shared_ptr<common::Connection> outbound_conn_;
             std::shared_ptr<adapter::ProxyAdapter> adapter_;
             constant::Metadata metadata_;
             

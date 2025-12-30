@@ -2,6 +2,8 @@
 build/
 bin/
 out/
+build-*
+build*/
 
 # CMake
 CMakeCache.txt
@@ -31,3 +33,4 @@ Makefile
 # OS generated files
 .DS_Store
 Thumbs.db
+clash-core-cpp.code-workspace

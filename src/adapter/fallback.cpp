@@ -119,7 +119,7 @@ namespace clash
                 std::string p_name = proxy->name();
 
                 proxy->dial(metadata, io_context_,
-                    [this, self, p_name, start_time](std::error_code ec, std::unique_ptr<common::Connection> conn)
+                    [this, self, p_name, start_time](std::error_code ec, std::shared_ptr<common::Connection> conn)
                     {
                         if (!ec)
                         {

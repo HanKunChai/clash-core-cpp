@@ -249,7 +249,7 @@ namespace clash
                         {
                             // 握手成功，将 Socket 移交给 Connection 对象
                             // Connection 对象将负责后续的数据转发
-                            handler_(ec, std::make_unique<common::TcpConnection>(std::move(socket_)));
+                            handler_(ec, std::make_shared<common::TcpConnection>(std::move(socket_)));
                         }
                         else
                         {

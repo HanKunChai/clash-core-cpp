@@ -8,6 +8,8 @@
 #include <nlohmann/json.hpp>
 #include <iostream>
 #include <sstream>
+#include <filesystem>
+#include <fstream>
 
 using json = nlohmann::json;
 
@@ -19,8 +21,8 @@ namespace control
 class HttpSession : public std::enable_shared_from_this<HttpSession>
 {
 public:
-    HttpSession(asio::ip::tcp::socket socket, std::shared_ptr<tunnel::Tunnel> tunnel)
-        : socket_(std::move(socket)), tunnel_(std::move(tunnel)), timer_(socket.get_executor()) {}
+    HttpSession(asio::ip::tcp::socket socket, std::shared_ptr<tunnel::Tunnel> tunnel, std::string external_ui)
+        : socket_(std::move(socket)), tunnel_(std::move(tunnel)), external_ui_(std::move(external_ui)), timer_(socket.get_executor()) {}
 
     ~HttpSession()
     {
@@ -87,8 +89,7 @@ private:
         }
         else if (method == "PUT" && path.find("/proxies/") == 0)
         {
-            std::string name = path.substr(9); // /proxies/
-            // Decode URL encoding if needed (skipping for now)
+            std::string name = url_decode(path.substr(9)); // /proxies/
             
             // Read body
             size_t body_pos = request.find("\r\n\r\n");
@@ -102,10 +103,107 @@ private:
                 send_response(400, "Bad Request");
             }
         }
+        else if (method == "GET" && !external_ui_.empty() && (path == "/" || path == "/ui" || path.find("/ui/") == 0))
+        {
+            handle_static_file(path);
+        }
         else
         {
             send_response(404, "Not Found");
         }
+    }
+
+    void handle_static_file(std::string path)
+    {
+        // Normalize path
+        if (path == "/" || path == "/ui" || path == "/ui/")
+        {
+            path = "/index.html";
+        }
+        else if (path.find("/ui/") == 0)
+        {
+            path = path.substr(3); // Remove /ui
+        }
+
+        // Prevent directory traversal
+        if (path.find("..") != std::string::npos)
+        {
+            send_response(403, "Forbidden");
+            return;
+        }
+
+        std::filesystem::path ui_root(external_ui_);
+        std::filesystem::path file_path = ui_root / path.substr(1); // Remove leading /
+
+        if (std::filesystem::exists(file_path) && std::filesystem::is_regular_file(file_path))
+        {
+            std::ifstream file(file_path, std::ios::binary);
+            if (file)
+            {
+                std::stringstream buffer;
+                buffer << file.rdbuf();
+                std::string content = buffer.str();
+                
+                std::string mime_type = "text/plain";
+                std::string ext = file_path.extension().string();
+                if (ext == ".html") mime_type = "text/html";
+                else if (ext == ".css") mime_type = "text/css";
+                else if (ext == ".js") mime_type = "application/javascript";
+                else if (ext == ".json") mime_type = "application/json";
+                else if (ext == ".png") mime_type = "image/png";
+                else if (ext == ".jpg" || ext == ".jpeg") mime_type = "image/jpeg";
+
+                std::stringstream response;
+                response << "HTTP/1.1 200 OK\r\n";
+                response << "Content-Type: " << mime_type << "\r\n";
+                response << "Content-Length: " << content.length() << "\r\n";
+                response << "Connection: close\r\n";
+                response << "\r\n";
+                response << content;
+
+                auto self(shared_from_this());
+                asio::async_write(socket_, asio::buffer(response.str()),
+                    [this, self](std::error_code ec, std::size_t)
+                    {
+                    });
+            }
+            else
+            {
+                send_response(500, "Internal Server Error");
+            }
+        }
+        else
+        {
+            send_response(404, "Not Found");
+        }
+    }
+
+    std::string url_decode(const std::string& str)
+    {
+        std::string ret;
+        char ch;
+        int i, ii;
+        for (i = 0; i < str.length(); i++)
+        {
+            if (str[i] != '%')
+            {
+                if (str[i] == '+')
+                    ret += ' ';
+                else
+                    ret += str[i];
+            }
+            else
+            {
+                if (i + 2 < str.length())
+                {
+                    sscanf(str.substr(i + 1, 2).c_str(), "%x", &ii);
+                    ch = static_cast<char>(ii);
+                    ret += ch;
+                    i = i + 2;
+                }
+            }
+        }
+        return ret;
     }
 
     // 处理流量请求：建立长连接并定期推送流量数据
@@ -272,6 +370,7 @@ private:
             {
                 auto selector = std::dynamic_pointer_cast<adapter::SelectorAdapter>(proxy);
                 selector->select(proxy_name);
+                LOG_INFO("Selector %s switched to %s", group_name.c_str(), proxy_name.c_str());
                 send_response(204, "");
             }
             else
@@ -369,13 +468,14 @@ private:
 
     asio::ip::tcp::socket socket_;
     std::shared_ptr<tunnel::Tunnel> tunnel_;
+    std::string external_ui_;
     asio::steady_timer timer_;
     std::array<char, 4096> buffer_;
     int log_sub_id_ = -1;
 };
 
-HttpController::HttpController(asio::io_context& io_context, std::string address, int port, std::shared_ptr<tunnel::Tunnel> tunnel)
-    : io_context_(io_context), acceptor_(io_context), tunnel_(std::move(tunnel))
+HttpController::HttpController(asio::io_context& io_context, std::string address, int port, std::shared_ptr<tunnel::Tunnel> tunnel, std::string external_ui)
+    : io_context_(io_context), acceptor_(io_context), tunnel_(std::move(tunnel)), external_ui_(std::move(external_ui))
 {
     
     asio::ip::tcp::endpoint endpoint(asio::ip::make_address(address), port);
@@ -399,7 +499,7 @@ void HttpController::do_accept()
         {
             if (!ec)
             {
-                std::make_shared<HttpSession>(std::move(socket), tunnel_)->start();
+                std::make_shared<HttpSession>(std::move(socket), tunnel_, external_ui_)->start();
             }
             do_accept();
         });

@@ -128,7 +128,7 @@ namespace clash
 
                 // 使用 dial 进行测试
                 proxy->dial(metadata, io_context_,
-                    [this, self, p_name, start_time](std::error_code ec, std::unique_ptr<common::Connection> conn)
+                    [this, self, p_name, start_time](std::error_code ec, std::shared_ptr<common::Connection> conn)
                     {
                         if (!ec)
                         {

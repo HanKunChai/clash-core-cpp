@@ -21,6 +21,30 @@ namespace clash
         static std::atomic<int> nextId{1};
         static std::ofstream logFile;
 
+        void init()
+        {
+            std::lock_guard<std::mutex> lock(logMutex);
+            try
+            {
+                std::string path = constant::Path::instance().resolve("clash.log");
+                std::filesystem::path p(path);
+                if (p.has_parent_path())
+                {
+                    std::filesystem::create_directories(p.parent_path());
+                }
+                // Open with trunc to clear file
+                logFile.open(path, std::ios::trunc | std::ios::out);
+                if (logFile.is_open())
+                {
+                    logFile.close();
+                }
+            }
+            catch (...)
+            {
+                std::cerr << "Failed to init log file" << std::endl;
+            }
+        }
+
         void setLevel(Level level)
         {
             currentLevel = level;

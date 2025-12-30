@@ -26,7 +26,7 @@ namespace clash
              * @param port 监听端口
              * @param tunnel 隧道管理器引用
              */
-            HttpController(asio::io_context& io_context, std::string address, int port, std::shared_ptr<tunnel::Tunnel> tunnel);
+            HttpController(asio::io_context& io_context, std::string address, int port, std::shared_ptr<tunnel::Tunnel> tunnel, std::string external_ui = "");
 
             /**
              * @brief 启动控制器
@@ -42,6 +42,7 @@ namespace clash
             asio::io_context& io_context_;
             asio::ip::tcp::acceptor acceptor_;
             std::shared_ptr<tunnel::Tunnel> tunnel_;
+            std::string external_ui_;
         };
 
     } // namespace control

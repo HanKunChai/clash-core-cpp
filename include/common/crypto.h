@@ -19,7 +19,50 @@ namespace clash
                 AES_128_GCM,
                 AES_256_GCM,
                 CHACHA20_POLY1305,
+                RC4_MD5,
+                AES_128_CTR,
+                AES_192_CTR,
+                AES_256_CTR,
+                AES_128_CFB,
+                AES_192_CFB,
+                AES_256_CFB,
+                CHACHA20_IETF,
                 UNKNOWN
+            };
+
+            /**
+             * @brief 哈希和 HMAC 工具
+             */
+            class Hash
+            {
+            public:
+                static void md5(const std::string& input, std::vector<uint8_t>& output);
+                static void sha1(const std::string& input, std::vector<uint8_t>& output);
+                static void hmac_sha1(const std::string& key, const std::vector<uint8_t>& data, std::vector<uint8_t>& output);
+            };
+
+            /**
+             * @brief 流加密工具类
+             */
+            class StreamCipher
+            {
+            public:
+                static size_t KeySize(CipherType type);
+                static size_t IvSize(CipherType type);
+
+                StreamCipher(CipherType type, const std::string& key, const std::string& iv, bool encrypt);
+                ~StreamCipher();
+
+                void update(const std::vector<uint8_t>& input, std::vector<uint8_t>& output);
+                
+                // Prevent copy
+                StreamCipher(const StreamCipher&) = delete;
+                StreamCipher& operator=(const StreamCipher&) = delete;
+
+            private:
+                void* ctx_ = nullptr; // EVP_CIPHER_CTX
+                CipherType type_;
+                bool encrypt_;
             };
 
             /**

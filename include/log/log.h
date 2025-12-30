@@ -27,6 +27,13 @@ namespace clash
         using LogCallback = std::function<void(Level, const std::string&)>;
 
         /**
+         * @brief 初始化日志系统
+         * 
+         * 清空旧日志文件等初始化操作
+         */
+        void init();
+
+        /**
          * @brief 设置全局日志级别
          * 
          * @param level 日志级别
