@@ -5,7 +5,7 @@ namespace clash
     namespace constant
     {
 
-        std::string Version = "V1.0.0";
+        std::string Version = "V1.1.0";
 
         // 如果定义了 BUILD_TIME 宏，则使用该宏的值，否则使用默认值
 #ifdef BUILD_TIME

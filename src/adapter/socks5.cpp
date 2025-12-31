@@ -41,7 +41,8 @@ namespace clash
                         }
                         else
                         {
-                            LOG_ERROR("Socks5 resolve error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("Socks5 resolve error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                     });
@@ -61,7 +62,8 @@ namespace clash
                         }
                         else
                         {
-                            LOG_ERROR("Socks5 connect error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("Socks5 connect error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                     });

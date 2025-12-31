@@ -66,7 +66,10 @@ void Session::start()
 
 std::string Session::chain() const
 {
-    if (adapter_) return adapter_->name();
+    if (adapter_) {
+        // 捕获适配器名称以避免在某些上下文中的潜在迭代器失效问题
+        return adapter_->name();
+    }
     return "";
 }
 
@@ -115,8 +118,8 @@ void Session::do_read()
             }
             else
             {
-                // 连接断开或读取错误
-                LOG_DEBUG("Session read error: %s", ec.message().c_str());
+                std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                LOG_DEBUG("Session read error: %s", error_msg.c_str());
             }
         });
 }
@@ -257,9 +260,9 @@ void Session::handle_socks5_handshake(std::size_t length)
     // 这里简化处理，直接回复无需认证
 
     // 回复客户端：版本 5，选择方法 0x00 (No Authentication Required)
-    char reply[] = {0x05, 0x00};
-    asio::async_write(socket_, asio::buffer(reply, 2),
-        [this, self](std::error_code ec, std::size_t /*length*/)
+    auto reply = std::make_shared<std::vector<char>>(std::initializer_list<char>{0x05, 0x00});
+    asio::async_write(socket_, asio::buffer(*reply),
+        [this, self, reply](std::error_code ec, std::size_t /*length*/)
         {
             if (!ec)
             {
@@ -268,9 +271,10 @@ void Session::handle_socks5_handshake(std::size_t length)
                 do_read();
             }
             else
-            {
-                LOG_ERROR("Socks5 handshake write error: %s", ec.message().c_str());
-            }
+                        {
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("Socks5 handshake write error: %s", error_msg.c_str());
+                        }
         });
 }
 
@@ -375,22 +379,25 @@ void Session::handle_connect()
     // 路由匹配
     adapter_ = tunnel_->match(metadata_);
     
+    // 捕获适配器名称以避免异步回调中的迭代器失效问题
+    std::string adapter_name = adapter_ ? adapter_->name() : "Unknown";
+    
     auto& ctx = static_cast<asio::io_context&>(socket_.get_executor().context());
 
     // 发起连接
     adapter_->dial(metadata_, ctx,
-        [this, self](std::error_code ec, std::shared_ptr<common::Connection> conn)
+        [this, self, adapter_name](std::error_code ec, std::shared_ptr<common::Connection> conn)
         {
             if (!ec)
             {
                 outbound_conn_ = std::move(conn);
-                LOG_DEBUG("Connected to target via %s", adapter_->name().c_str());
+                LOG_DEBUG("Connected to target via %s", adapter_name.c_str());
                 
                 // 连接成功，回复 SOCKS5 成功消息 (0x00)
                 // BND.ADDR 和 BND.PORT 这里填 0，表示忽略
-                char reply[] = {0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0};
-                asio::async_write(socket_, asio::buffer(reply, 10),
-                    [this, self](std::error_code ec, std::size_t /*length*/)
+                auto reply = std::make_shared<std::vector<char>>(std::initializer_list<char>{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0});
+                asio::async_write(socket_, asio::buffer(*reply),
+                    [this, self, reply](std::error_code ec, std::size_t /*length*/)
                     {
                         if (!ec)
                         {
@@ -400,13 +407,15 @@ void Session::handle_connect()
                         }
                         else
                         {
-                            LOG_ERROR("Socks5 reply write error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("Socks5 reply write error: %s", error_msg.c_str());
                         }
                     });
             }
             else
             {
-                LOG_ERROR("Connect error: %s", ec.message().c_str());
+                std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                LOG_ERROR("Connect error: %s", error_msg.c_str());
                 // TODO: 应该根据错误类型回复不同的 SOCKS5 错误码
                 // 例如 0x04 (Host unreachable), 0x05 (Connection refused) 等
             }
@@ -426,20 +435,23 @@ void Session::handle_connect_http(bool is_connect, std::size_t initial_data_len)
     adapter_ = tunnel_->match(metadata_);
     auto& ctx = static_cast<asio::io_context&>(socket_.get_executor().context());
 
+    // 捕获适配器名称以避免异步回调中的生命周期问题
+    std::string adapter_name = adapter_ ? adapter_->name() : "Unknown";
+    
     adapter_->dial(metadata_, ctx,
-        [this, self, is_connect, initial_data_len](std::error_code ec, std::shared_ptr<common::Connection> conn)
+        [this, self, is_connect, initial_data_len, adapter_name](std::error_code ec, std::shared_ptr<common::Connection> conn)
         {
             if (!ec)
             {
                 outbound_conn_ = std::move(conn);
-                LOG_DEBUG("Connected to target via %s", adapter_->name().c_str());
+                LOG_DEBUG("Connected to target via %s", adapter_name.c_str());
                 
                 if (is_connect)
                 {
                     // HTTP CONNECT 请求：回复 200 OK，表示隧道建立成功
-                    std::string reply = "HTTP/1.1 200 Connection Established\r\n\r\n";
-                    asio::async_write(socket_, asio::buffer(reply),
-                        [this, self](std::error_code ec, std::size_t /*length*/)
+                    auto reply = std::make_shared<std::string>("HTTP/1.1 200 Connection Established\r\n\r\n");
+                    asio::async_write(socket_, asio::buffer(*reply),
+                        [this, self, reply](std::error_code ec, std::size_t /*length*/)
                         {
                             if (!ec)
                             {
@@ -447,9 +459,10 @@ void Session::handle_connect_http(bool is_connect, std::size_t initial_data_len)
                                 start_relay();
                             }
                             else
-                            {
-                                LOG_ERROR("HTTP CONNECT reply write error: %s", ec.message().c_str());
-                            }
+                        {
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("HTTP CONNECT reply write error: %s", error_msg.c_str());
+                        }
                         });
                 }
                 else
@@ -464,15 +477,17 @@ void Session::handle_connect_http(bool is_connect, std::size_t initial_data_len)
                                 start_relay();
                             }
                             else
-                            {
-                                LOG_ERROR("HTTP initial write error: %s", ec.message().c_str());
-                            }
-                        });
+                        {
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("HTTP initial write error: %s", error_msg.c_str());
+                        }
+                    });
                 }
             }
             else
             {
-                LOG_ERROR("Connect error: %s", ec.message().c_str());
+                std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                LOG_ERROR("Connect error: %s", error_msg.c_str());
                 socket_.close();
             }
         });
@@ -514,7 +529,8 @@ void Session::do_relay_client_to_target()
                         }
                         else
                         {
-                            LOG_DEBUG("Write to target error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_DEBUG("Write to target error: %s", error_msg.c_str());
                             outbound_conn_->close();
                             socket_.close();
                         }
@@ -522,7 +538,8 @@ void Session::do_relay_client_to_target()
             }
             else
             {
-                LOG_DEBUG("Read from client error: %s", ec.message().c_str());
+                std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                LOG_DEBUG("Read from client error: %s", error_msg.c_str());
                 outbound_conn_->close();
                 socket_.close();
             }
@@ -557,7 +574,8 @@ void Session::do_relay_target_to_client()
                         }
                         else
                         {
-                            LOG_DEBUG("Write to client error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_DEBUG("Write to client error: %s", error_msg.c_str());
                             socket_.close();
                             outbound_conn_->close();
                         }
@@ -565,7 +583,8 @@ void Session::do_relay_target_to_client()
             }
             else
             {
-                LOG_DEBUG("Read from target error: %s", ec.message().c_str());
+                std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                LOG_DEBUG("Read from target error: %s", error_msg.c_str());
                 socket_.close();
                 outbound_conn_->close();
             }

@@ -1,6 +1,12 @@
 #include "dns/message.h"
 #include <cstring>
+#ifndef _WIN32
 #include <arpa/inet.h> // for htons, ntohs
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
+
 #include <iostream>
 
 namespace clash

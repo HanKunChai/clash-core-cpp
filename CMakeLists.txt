@@ -8,27 +8,32 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
 include(FetchContent)
 
+# download yaml-cpp using mirror
+# original yaml-cpp: https://github.com/jbeder/yaml-cpp.git
 FetchContent_Declare(
     yaml-cpp
-    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    GIT_REPOSITORY https://bgithub.xyz/jbeder/yaml-cpp.git
     GIT_TAG master
 )
 
+# original asio: https://github.com/chriskohlhoff/asio.git
 FetchContent_Declare(
     asio
-    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_REPOSITORY https://bgithub.xyz/chriskohlhoff/asio.git
     GIT_TAG asio-1-30-2
 )
 
+# original nlohmann/json: https://github.com/nlohmann/json.git
 FetchContent_Declare(
     json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_REPOSITORY https://bgithub.xyz/nlohmann/json.git
     GIT_TAG v3.11.2
 )
 
+# original libmaxminddb: https://github.com/maxmind/libmaxminddb.git
 FetchContent_Declare(
     libmaxminddb
-    GIT_REPOSITORY https://github.com/maxmind/libmaxminddb.git
+    GIT_REPOSITORY https://bgithub.xyz/maxmind/libmaxminddb.git
     GIT_TAG 1.7.1
     GIT_SUBMODULES "" # Disable submodules
 )
@@ -54,7 +59,18 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
+if(WIN32)
+    list(FILTER SOURCES EXCLUDE REGEX "platform_linux.cpp$")
+    add_definitions(-D_WIN32_WINNT=0x0601 -DNOMINMAX)
+else()
+    list(FILTER SOURCES EXCLUDE REGEX "platform_windows.cpp$")
+endif()
+
 add_executable(clash-core-cpp ${SOURCES})
 
-target_link_libraries(clash-core-cpp yaml-cpp pthread OpenSSL::SSL OpenSSL::Crypto maxminddb)
+if(WIN32)
+    target_link_libraries(clash-core-cpp yaml-cpp OpenSSL::SSL OpenSSL::Crypto maxminddb Ws2_32 Iphlpapi Mswsock Crypt32)
+else()
+    target_link_libraries(clash-core-cpp yaml-cpp pthread OpenSSL::SSL OpenSSL::Crypto maxminddb)
+endif()
 

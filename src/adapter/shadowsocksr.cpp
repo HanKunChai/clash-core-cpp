@@ -61,7 +61,8 @@ namespace clash
                     {
                         if (ec)
                         {
-                            LOG_ERROR("SSR Read error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("SSR Read error: %s", error_msg.c_str());
                             handler(ec, 0);
                             return;
                         }
@@ -170,12 +171,14 @@ namespace clash
                 LOG_DEBUG("SSR Write encoded bytes: %zu", encoded.size());
 
                 auto self(shared_from_this());
-                asio::async_write(socket_, asio::buffer(encoded),
-                    [this, self, handler, buffer_size = buffer.size()](std::error_code ec, std::size_t)
+                auto encoded_ptr = std::make_shared<std::vector<uint8_t>>(std::move(encoded));
+                asio::async_write(socket_, asio::buffer(*encoded_ptr),
+                    [this, self, handler, buffer_size = buffer.size(), encoded_ptr](std::error_code ec, std::size_t)
                     {
                         if (ec)
                         {
-                            LOG_ERROR("SSR Write error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("SSR Write error: %s", error_msg.c_str());
                         }
                         // 报告原始缓冲区大小为已写入
                         handler(ec, buffer_size);
@@ -238,7 +241,8 @@ namespace clash
                         }
                         else
                         {
-                            LOG_ERROR("SSRDialer resolve error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("SSRDialer resolve error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                     });
@@ -259,7 +263,8 @@ namespace clash
                         }
                         else
                         {
-                            LOG_ERROR("SSRDialer connect error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("SSRDialer connect error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                     });
@@ -440,6 +445,8 @@ namespace clash
                         }
                         else
                         {
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("SSRDialer handshake send error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                     });

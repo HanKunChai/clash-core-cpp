@@ -77,7 +77,8 @@ void TcpListener::do_accept()
                 // 如果 Acceptor 被关闭 (ec == operation_aborted)，则不再继续
                 if (ec != asio::error::operation_aborted)
                 {
-                    LOG_ERROR("Accept error: %s", ec.message().c_str());
+                    std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                    LOG_ERROR("Accept error: %s", error_msg.c_str());
                 }
             }
 

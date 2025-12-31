@@ -101,7 +101,12 @@ namespace clash
             }
 
             std::time_t t = std::time(nullptr);
-            std::tm* now = std::localtime(&t);
+            std::tm now;
+#ifdef _WIN32
+            localtime_s(&now, &t);
+#else
+            localtime_r(&t, &now);
+#endif
 
             std::string levelStr;
             switch (level)
@@ -113,9 +118,12 @@ namespace clash
                 case Level::Silent: return;
             }
 
+            char timeBuf[32];
+            std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &now);
+
             // 格式化日志消息：[时间] [级别] [函数名:行号] 消息
             std::stringstream ss;
-            ss << "[" << std::put_time(now, "%Y-%m-%d %H:%M:%S") << "] "
+            ss << "[" << timeBuf << "] "
                << "[" << levelStr << "] "
                << "[" << func << ":" << line << "] "
                << msg;

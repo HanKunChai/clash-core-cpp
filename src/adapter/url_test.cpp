@@ -142,7 +142,8 @@ namespace clash
                         }
                         else
                         {
-                            // LOG_DEBUG("URLTest proxy %s failed: %s", p_name.c_str(), ec.message().c_str());
+                            // std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            // LOG_DEBUG("URLTest proxy %s failed: %s", p_name.c_str(), error_msg.c_str());
                         }
                     });
             }
@@ -185,4 +186,3 @@ namespace clash
 
     } // namespace adapter
 } // namespace clash
-

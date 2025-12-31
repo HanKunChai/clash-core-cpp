@@ -4,7 +4,12 @@
 #include "common/encrypted_connection.h"
 #include "common/crypto.h"
 #include <iostream>
+#ifndef _WIN32
 #include <arpa/inet.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 
 namespace clash
 {
@@ -35,7 +40,8 @@ namespace clash
                         }
                         else
                         {
-                            LOG_ERROR("Shadowsocks resolve error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("Shadowsocks resolve error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                     });
@@ -55,7 +61,8 @@ namespace clash
                         }
                         else
                         {
-                            LOG_ERROR("Shadowsocks connect error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("Shadowsocks connect error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                     });
@@ -156,7 +163,8 @@ namespace clash
                     {
                         if (ec)
                         {
-                            LOG_ERROR("Shadowsocks handshake write error: %s", ec.message().c_str());
+                            std::string error_msg = ec.message();  // 捕获字符串到局部变量
+                            LOG_ERROR("Shadowsocks handshake write error: %s", error_msg.c_str());
                             handler_(ec, nullptr);
                         }
                         else

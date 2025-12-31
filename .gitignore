@@ -34,3 +34,5 @@ Makefile
 .DS_Store
 Thumbs.db
 clash-core-cpp.code-workspace
+.config/clash/clash.log
+.config/clash/config.yaml
