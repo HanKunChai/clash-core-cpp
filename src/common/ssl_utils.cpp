@@ -24,7 +24,7 @@ namespace clash
 
             for (const char* store_name : store_names)
             {
-                HCERTSTORE hStore = CertOpenSystemStoreA(NULL, store_name);
+                HCERTSTORE hStore = CertOpenSystemStoreA(0, store_name);
                 if (hStore)
                 {
                     PCCERT_CONTEXT pContext = NULL;

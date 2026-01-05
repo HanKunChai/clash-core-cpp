@@ -69,7 +69,7 @@ namespace clash
             subscribers.erase(id);
         }
 
-        void print(Level level, const char* func, int line, const std::string& msg)
+        void print(Level level, const char* file, int line, const std::string& msg)
         {
             // 如果日志级别低于当前级别，则忽略
             if (level < currentLevel)
@@ -125,7 +125,7 @@ namespace clash
             std::stringstream ss;
             ss << "[" << timeBuf << "] "
                << "[" << levelStr << "] "
-               << "[" << func << ":" << line << "] "
+               << "[" << file << ":" << line << "] "
                << msg;
 
             std::string finalMsg = ss.str();

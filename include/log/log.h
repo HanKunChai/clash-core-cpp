@@ -70,7 +70,7 @@ namespace clash
          * @param line 行号
          * @param msg 消息内容
          */
-        void print(Level level, const char* func, int line, const std::string& msg);
+        void print(Level level, const char* file, int line, const std::string& msg);
 
         /**
          * @brief 格式化字符串辅助函数
@@ -100,12 +100,12 @@ namespace clash
 } // namespace clash
 
 // 用于捕获函数名和行号的宏
-#define LOG_DEBUGLN(msg) clash::log::print(clash::log::Level::Debug, __FUNCTION__, __LINE__, msg)
-#define LOG_INFOLN(msg)  clash::log::print(clash::log::Level::Info,  __FUNCTION__, __LINE__, msg)
-#define LOG_WARNLN(msg)  clash::log::print(clash::log::Level::Warning, __FUNCTION__, __LINE__, msg)
-#define LOG_ERRORLN(msg) clash::log::print(clash::log::Level::Error, __FUNCTION__, __LINE__, msg)
+#define LOG_DEBUGLN(msg) clash::log::print(clash::log::Level::Debug, __FILE__, __LINE__, msg)
+#define LOG_INFOLN(msg)  clash::log::print(clash::log::Level::Info,  __FILE__, __LINE__, msg)
+#define LOG_WARNLN(msg)  clash::log::print(clash::log::Level::Warning, __FILE__, __LINE__, msg)
+#define LOG_ERRORLN(msg) clash::log::print(clash::log::Level::Error, __FILE__, __LINE__, msg)
 
-#define LOG_DEBUG(fmt, ...) clash::log::print(clash::log::Level::Debug, __FUNCTION__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
-#define LOG_INFO(fmt, ...)  clash::log::print(clash::log::Level::Info,  __FUNCTION__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
-#define LOG_WARN(fmt, ...)  clash::log::print(clash::log::Level::Warning, __FUNCTION__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
-#define LOG_ERROR(fmt, ...) clash::log::print(clash::log::Level::Error, __FUNCTION__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
+#define LOG_DEBUG(fmt, ...) clash::log::print(clash::log::Level::Debug, __FILE__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
+#define LOG_INFO(fmt, ...)  clash::log::print(clash::log::Level::Info,  __FILE__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
+#define LOG_WARN(fmt, ...)  clash::log::print(clash::log::Level::Warning, __FILE__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
+#define LOG_ERROR(fmt, ...) clash::log::print(clash::log::Level::Error, __FILE__, __LINE__, clash::log::format(fmt, ##__VA_ARGS__))
